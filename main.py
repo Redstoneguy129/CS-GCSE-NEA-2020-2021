@@ -7,31 +7,58 @@ from enum import Enum
 from os import path as path
 from random import randint as ri
 
+"""
+NEA Development - Cameron Whyte 2020
+This was made by Cameron Whyte
+"""
+
 
 class Screen(Enum):
+    """
+    Class to create Enums i'll use to identify the current screen
+    """
     LOGIN = "Login"
     GAME = "Game"
     SCORE = "Score"
 
 
-openGame = True
-currentScreen = Screen.LOGIN
-youPlayerMain = None
-opponentPlayerMain = None
+openGame = True  # Keeps the Tkinter root instance running.
+currentScreen = Screen.LOGIN  # Sets the screen to LOGIN so when user runs program it goes straight to the screen.
+youPlayerMain = None  # User has not been defined yet so setting to None will say it exists.
+opponentPlayerMain = None  # Bot has not been defined yet so setting to None will say it exists.
 
 
 def handle_focus_out(entry: Entry, string: str):
+    """
+    :param entry:
+    :param string:
+
+    Nice method for the entry boxes in Login screen, makes text grey when not editing.
+    """
     entry.delete(0, END)
     entry.config(fg='grey')
     entry.insert(0, string)
 
 
 def handle_focus_in(entry: Entry):
+    """
+    :param entry:
+
+    Nice method for the entry boxes in Login screen, makes text black when editing.
+    """
     entry.delete(0, END)
     entry.config(fg='black')
 
 
 def create_entry(root: Tk, name: str, show: bool) -> Entry:
+    """
+    :param root:
+    :param name:
+    :param show:
+    :return:
+
+    Creates the Entry box for username and password, also links them to the focus handler methods.
+    """
     entry = Entry(root, width=35, show="*") if not show else Entry(root, width=35)
     if show:
         entry.delete(0, END)
@@ -43,28 +70,59 @@ def create_entry(root: Tk, name: str, show: bool) -> Entry:
 
 
 class Player:
+
     def __init__(self, isPlayer: bool):
+        """
+        :param isPlayer:
+
+        Player class for accessing the scores, turns and score list.
+        Can be used to identify if current roller is a bot or not.
+        Stores scores throughout the game here.
+        """
         self.isPlayer = isPlayer
         self.turn = False
         self.scores = []
         self.score = 0
 
     def addScore(self, score: int):
+        """
+        Adds the given score to the players total score for that round.
+        :param score:
+        :return:
+        """
         self.score += score
 
     def getIsPlayer(self) -> bool:
+        """
+        If player isn't the bot then it returns True as it's a real player.
+        :return:
+        """
         return self.isPlayer
 
     def getTurn(self) -> bool:
+        """
+        If player is rolling it returns true.
+        This is used to determine the rolls user has lest in the :UpdateDiceRoll method.
+        :return:
+        """
         return self.turn
 
     def getScores(self) -> []:
+        """
+        Returns the list of scores from the whole game.
+        :return:
+        """
         return self.scores
 
 
 class LoginScreen:
 
     def __init__(self, root: Tk):
+        """
+        :param root:
+
+        This is the screen where if enabled the user needs to either create an account or login to an existing one.
+        """
         self.label = Label(root)
         self.root = root
         self.username = create_entry(root, "Username", True)
@@ -76,6 +134,11 @@ class LoginScreen:
         root.bind("<Return>", self.login)
 
     def login(self):
+        """
+        :return:
+
+        Logs in with credentials given, if incorrect or does not exist then gives error.
+        """
         with open("DBData.json") as DBDataFile:
             DBDataSerial = json.load(DBDataFile)
             if not self.username.get() in DBDataSerial:
@@ -96,6 +159,12 @@ class LoginScreen:
                     self.root.destroy()
 
     def create(self):
+        """
+        :return:
+
+        Creates an account for the new user to play the game.
+        Also uses an MD5 Hashing algorithm to encrypt the passwords so if someone views json file they wont know the password.
+        """
         with open("DBData.json") as DBDataFileRead:
             DBDataSerial = json.load(DBDataFileRead)
         if not self.username.get() in DBDataSerial:
@@ -112,6 +181,11 @@ class LoginScreen:
 class GameScreen:
 
     def __init__(self, root: Tk):
+        """
+        The Game screen is the main part of the game.
+        This method registers the labels and buttons for the screen.
+        :param root:
+        """
         self.root = root
         self.frame = 0
         self.rounds = 0
@@ -138,12 +212,22 @@ class GameScreen:
         self.updateDiceRoll(None, None)
 
     def getTopPlayer(self):
+        """
+        Returns the top player as You or Opponent.
+        :return:
+        """
         self.topPlayerLabel.destroy()
         self.topPlayerLabel = Label(self.root, text="You" if self.topPlayer.getIsPlayer() else "Opponent",
                                     font='Comic-Sans 14 italic')
         self.topPlayerLabel.place(x=235, y=320, anchor=NW)
 
     def updateDiceRoll(self, frame: int, player: Player):
+        """
+        Changes the dice texture while also editing the scores and setting turns.
+        :param frame:
+        :param player:
+        :return:
+        """
         image = PIL.Image.open("dice/Dice_" + str((frame if frame is not None else self.frame) + 1) + ".png")
         image.convert("RGB")
         image.resize((128, 128), PIL.Image.ANTIALIAS)
@@ -204,6 +288,12 @@ class GameScreen:
                         self.youPlayer.turn = True
 
     def rollDice(self):
+        """
+        When player clicks the dice this method runs.
+        If the 5th round hasn't occurred yet then it updates the dice roll method.
+        If the 5th round has occurred then it ends the game and continues to the Score screen with the scores collected from the players.
+        :return:
+        """
         if self.rounds > 4:
             self.endGame()
         else:
@@ -211,6 +301,10 @@ class GameScreen:
                 self.updateDiceRoll(ri(0, 5), self.youPlayer)
 
     def endGame(self):
+        """
+        Ends the game and switches to the Score screen.
+        :return:
+        """
         global youPlayerMain
         global opponentPlayerMain
         global currentScreen
@@ -223,22 +317,71 @@ class GameScreen:
 class ScoreScreen:
 
     def __init__(self, root: Tk):
+        """
+        Method that determines the winner of the game.
+        Lists on both sides of the screen the scores of both players.
+        Buttons that allow the player to play again or close the program through the main windows close button or the button next to play again.
+        :param root:
+        """
         global youPlayerMain
         global opponentPlayerMain
+        self.root = root
         self.youTotalScore = 0
         self.opponentTotalScore = 0
+        Label(self.root, text="You", font="Comic-Sans 12 bold").place(x=10, y=90, anchor=NW)
+        Label(self.root, text="Opponent", font="Comic-Sans 12 bold").place(x=445, y=90, anchor=NW)
+        p = 0
+        l = 0
         for i in youPlayerMain.scores:
+            l += 1
             self.youTotalScore += i
+            Label(self.root, text="Round " + str(l) + ":   " + str(i) + " points", font="Comic-Sans 12").place(x=10,
+                                                                                                               y=110 + p,
+                                                                                                               anchor=NW)
+            p += 25
+        p = 0
+        l = 0
         for i in opponentPlayerMain.scores:
+            l += 1
             self.opponentTotalScore += i
-        self.root = root
-        Label(self.root, text="Winner: You" if self.youTotalScore > self.opponentTotalScore else "Winner: Opponent", font="Comic-Sans 15").place(x=205, y=75, anchor=NW)
-        Label(self.root, text="With "+str(self.youTotalScore if self.youTotalScore > self.opponentTotalScore else self.opponentTotalScore)+" points", font="Comic-Sans 12").place(x=235, y=110, anchor=NW)
-        Label(self.root, text="Lost: You" if self.youTotalScore < self.opponentTotalScore else "Winner: Opponent", font="Comic-Sans 15").place(x=205, y=160, anchor=NW)
-        Label(self.root, text="With "+str(self.youTotalScore if self.youTotalScore > self.opponentTotalScore else self.opponentTotalScore)+" points", font="Comic-Sans 12").place(x=235, y=195, anchor=NW)
+            Label(self.root, text="Round " + str(l) + ":   " + str(i) + " points", font="Comic-Sans 12").place(x=445,
+                                                                                                               y=110 + p,
+                                                                                                               anchor=NW)
+            p += 25
+        Label(self.root, text="Winner: You" if self.youTotalScore > self.opponentTotalScore else "Winner: Opponent",
+              font="Comic-Sans 15").place(x=205, y=75, anchor=NW)
+        Label(self.root, text="With " + str(
+            self.youTotalScore if self.youTotalScore > self.opponentTotalScore else self.opponentTotalScore) + " points",
+              font="Comic-Sans 12").place(x=235, y=110, anchor=NW)
+        Label(self.root, text="Lost: You" if self.youTotalScore < self.opponentTotalScore else "Winner: Opponent",
+              font="Comic-Sans 15").place(x=205, y=160, anchor=NW)
+        Label(self.root, text="With " + str(
+            self.youTotalScore if self.youTotalScore < self.opponentTotalScore else self.opponentTotalScore) + " points",
+              font="Comic-Sans 12").place(x=235, y=195, anchor=NW)
+        Button(root, text="Play Again", command=self.PlayAgain, width=12, height=2).place(x=150, y=250, anchor=NW)
+        Button(root, text="End Game", command=lambda: CloseGame(self.root, None), width=12, height=2).place(x=300,
+                                                                                                            y=250,
+                                                                                                            anchor=NW)
+
+    def PlayAgain(self):
+        """
+        Play again changes the current screen to Game and destroys its parent window.
+        :return:
+        """
+        global youPlayerMain, opponentPlayerMain, currentScreen
+        youPlayerMain = None
+        opponentPlayerMain = None
+        currentScreen = Screen.GAME
+        self.root.destroy()
 
 
 def trueClose(root: Tk, popup: Tk):
+    """
+    Actually closes the window if popup is okay.
+    :param root:
+    :param popup:
+    :return:
+    """
     global openGame
     openGame = False
     popup.destroy()
@@ -246,13 +389,20 @@ def trueClose(root: Tk, popup: Tk):
 
 
 def CloseGame(root: Tk, name: str):
+    """
+    Checks if score screen to see if should open or popup or close game straight away.
+    :param root:
+    :param name:
+    :return:
+    """
     global currentScreen
     if currentScreen != Screen.SCORE:
         popup = Tk()
         popup.config(height=200, width=400)
         popup.title(name)
         popup.resizable(False, False)
-        Label(popup, text="Are you sure you want to exit the game?", font="Comic-Sans 14 bold").place(x=10, y=35, anchor=NW)
+        Label(popup, text="Are you sure you want to exit the game?", font="Comic-Sans 14 bold").place(x=10, y=35,
+                                                                                                      anchor=NW)
         Button(popup, text="Okay", command=lambda: trueClose(root, popup)).place(x=180, y=75, anchor=NW)
         popup.mainloop()
     else:
@@ -262,6 +412,12 @@ def CloseGame(root: Tk, name: str):
 
 
 def start(name: str) -> Tk:
+    """
+    Starts the screens using Tkinter.
+    Returns the root back to the main method.
+    :param name:
+    :return:
+    """
     global currentScreen
     root = Tk()
     root.title(name)
@@ -275,6 +431,11 @@ def start(name: str) -> Tk:
 
 
 if __name__ == '__main__':
+    """
+    Creates a json DB file is isn't already created for storing passwords.
+    Starts a loop for the Tkinter screen.
+    Also overwrites the default windows close event for popups to ask if user is sure.
+    """
     print("NEA Development - Cameron Whyte 2020")
     if not path.isfile("DBData.json"):
         DBData = open("DBData.json", "w")
